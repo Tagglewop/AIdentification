@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(Get-Content *)",
+      "Bash(node -e \"require\\('./server.js'\\)\")",
+      "Bash(npm audit *)",
+      "Bash(node -e ' *)",
+      "Bash(npm uninstall *)",
+      "PowerShell(New-Item *)",
+      "Bash(git --version)"
+    ]
+  }
+}

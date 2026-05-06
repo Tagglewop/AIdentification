@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AIdetification — Is It AI?</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e2e;
+      --text: #e2e2f0;
+      --muted: #6b6b8a;
+      --ai-color: #f97316;
+      --human-color: #22c55e;
+      --accent: #7c3aed;
+      --accent-light: #a78bfa;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      width: 100%;
+      padding: 2rem 2rem 0;
+      text-align: center;
+    }
+
+    .logo {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent-light);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #e2e2f0 30%, var(--accent-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 1rem;
+    }
+
+    .tagline {
+      font-size: 1.1rem;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 3rem;
+      line-height: 1.6;
+    }
+
+    main {
+      width: 100%;
+      max-width: 720px;
+      padding: 0 1.5rem 4rem;
+    }
+
+    .input-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 2rem;
+      box-shadow: 0 0 60px rgba(124, 58, 237, 0.08);
+    }
+
+    .url-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    input[type="url"] {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 0.875rem 1.125rem;
+      font-size: 0.95rem;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="url"]::placeholder { color: var(--muted); }
+    input[type="url"]:focus { border-color: var(--accent); }
+
+    button[type="submit"] {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 0.75rem;
+      padding: 0.875rem 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    button[type="submit"]:hover { background: #6d28d9; }
+    button[type="submit"]:active { transform: scale(0.98); }
+    button[type="submit"]:disabled { background: #3d2a5e; cursor: not-allowed; }
+
+    .hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* Loading */
+    .loader {
+      display: none;
+      text-align: center;
+      padding: 3rem 0;
+    }
+
+    .loader.active { display: block; }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent-light);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 1.25rem;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loader p { color: var(--muted); font-size: 0.9rem; }
+
+    /* Result card */
+    .result-card {
+      display: none;
+      margin-top: 2rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      overflow: hidden;
+    }
+
+    .result-card.active { display: block; }
+
+    .verdict-banner {
+      padding: 2rem 2rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .verdict-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.75rem;
+      flex-shrink: 0;
+    }
+
+    .verdict-icon.ai { background: rgba(249, 115, 22, 0.15); }
+    .verdict-icon.human { background: rgba(34, 197, 94, 0.15); }
+
+    .verdict-text h2 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      margin-bottom: 0.35rem;
+    }
+
+    .verdict-text h2.ai { color: var(--ai-color); }
+    .verdict-text h2.human { color: var(--human-color); }
+
+    .verdict-text .page-title {
+      font-size: 0.85rem;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 480px;
+    }
+
+    .result-body { padding: 1.75rem 2rem; }
+
+    .confidence-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .confidence-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .confidence-bar-wrap {
+      flex: 1;
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .confidence-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .confidence-bar-fill.ai { background: linear-gradient(90deg, #f97316, #ef4444); }
+    .confidence-bar-fill.human { background: linear-gradient(90deg, #22c55e, #16a34a); }
+
+    .confidence-pct {
+      font-size: 0.9rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .confidence-pct.ai { color: var(--ai-color); }
+    .confidence-pct.human { color: var(--human-color); }
+
+    .summary-text {
+      font-size: 0.975rem;
+      line-height: 1.7;
+      color: #c4c4dc;
+      margin-bottom: 1.5rem;
+    }
+
+    .signals-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    @media (max-width: 540px) {
+      .signals-grid { grid-template-columns: 1fr; }
+    }
+
+    .signal-group {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0.875rem;
+      padding: 1rem 1.25rem;
+    }
+
+    .signal-group-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+    }
+
+    .signal-group-title.ai { color: var(--ai-color); }
+    .signal-group-title.human { color: var(--human-color); }
+
+    .signal-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .signal-list li {
+      font-size: 0.82rem;
+      color: var(--muted);
+      padding-left: 1rem;
+      position: relative;
+      line-height: 1.4;
+    }
+
+    .signal-list li::before {
+      content: '•';
+      position: absolute;
+      left: 0;
+    }
+
+    .signal-list.ai li::before { color: var(--ai-color); }
+    .signal-list.human li::before { color: var(--human-color); }
+
+    .content-type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: rgba(124, 58, 237, 0.12);
+      border: 1px solid rgba(124, 58, 237, 0.25);
+      color: var(--accent-light);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.3rem 0.7rem;
+      border-radius: 999px;
+      margin-bottom: 1.25rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* Error */
+    .error-box {
+      display: none;
+      margin-top: 1.5rem;
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      border-radius: 0.875rem;
+      padding: 1rem 1.25rem;
+      font-size: 0.875rem;
+      color: #fca5a5;
+    }
+
+    .error-box.active { display: block; }
+
+    footer {
+      width: 100%;
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      margin-top: auto;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <p class="logo">AIdetification</p>
+  <h1>Is It AI?</h1>
+  <p class="tagline">Paste any link — article, blog post, product page, social post — and we'll tell you whether a human or an AI wrote it.</p>
+</header>
+
+<main>
+  <div class="input-card">
+    <form id="analyzeForm">
+      <div class="url-row">
+        <input type="url" id="urlInput" placeholder="https://example.com/article" required autocomplete="off" />
+        <button type="submit" id="submitBtn">Analyze</button>
+      </div>
+      <p class="hint">Works on articles, blog posts, product descriptions, social profiles, and more.</p>
+    </form>
+  </div>
+
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <p>Fetching and analyzing content&hellip;</p>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="result-card" id="resultCard">
+    <div class="verdict-banner" id="verdictBanner">
+      <div class="verdict-icon" id="verdictIcon"></div>
+      <div class="verdict-text">
+        <h2 id="verdictLabel"></h2>
+        <p class="page-title" id="pageTitle"></p>
+      </div>
+    </div>
+    <div class="result-body">
+      <div class="content-type-badge" id="contentTypeBadge"></div>
+      <div class="confidence-row">
+        <span class="confidence-label">Confidence</span>
+        <div class="confidence-bar-wrap">
+          <div class="confidence-bar-fill" id="confidenceBar" style="width:0%"></div>
+        </div>
+        <span class="confidence-pct" id="confidencePct"></span>
+      </div>
+      <p class="summary-text" id="summaryText"></p>
+      <div class="signals-grid">
+        <div class="signal-group">
+          <p class="signal-group-title ai">AI Signals</p>
+          <ul class="signal-list ai" id="aiSignals"></ul>
+        </div>
+        <div class="signal-group">
+          <p class="signal-group-title human">Human Signals</p>
+          <ul class="signal-list human" id="humanSignals"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  Powered by Claude &mdash; AIdetification &copy; 2025
+</footer>
+
+<script>
+  const form = document.getElementById('analyzeForm');
+  const urlInput = document.getElementById('urlInput');
+  const submitBtn = document.getElementById('submitBtn');
+  const loader = document.getElementById('loader');
+  const errorBox = document.getElementById('errorBox');
+  const resultCard = document.getElementById('resultCard');
+
+  function setLoading(on) {
+    submitBtn.disabled = on;
+    submitBtn.textContent = on ? 'Analyzing…' : 'Analyze';
+    loader.classList.toggle('active', on);
+  }
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.classList.add('active');
+    resultCard.classList.remove('active');
+  }
+
+  function clearError() {
+    errorBox.textContent = '';
+    errorBox.classList.remove('active');
+  }
+
+  function isAiVerdict(verdict) {
+    return verdict.toLowerCase().includes('ai');
+  }
+
+  function renderResult(data) {
+    const ai = isAiVerdict(data.verdict);
+    const cls = ai ? 'ai' : 'human';
+
+    document.getElementById('verdictIcon').textContent = ai ? '🤖' : '✍️';
+    document.getElementById('verdictIcon').className = `verdict-icon ${cls}`;
+
+    const label = document.getElementById('verdictLabel');
+    label.textContent = data.verdict;
+    label.className = cls;
+
+    document.getElementById('pageTitle').textContent = data.title || data.url;
+    document.getElementById('contentTypeBadge').textContent = data.content_type || 'Web Content';
+
+    const bar = document.getElementById('confidenceBar');
+    bar.className = `confidence-bar-fill ${cls}`;
+    setTimeout(() => { bar.style.width = data.confidence + '%'; }, 50);
+
+    const pct = document.getElementById('confidencePct');
+    pct.textContent = data.confidence + '%';
+    pct.className = `confidence-pct ${cls}`;
+
+    document.getElementById('summaryText').textContent = data.summary;
+
+    const aiList = document.getElementById('aiSignals');
+    const humanList = document.getElementById('humanSignals');
+    aiList.innerHTML = '';
+    humanList.innerHTML = '';
+
+    (data.signals?.ai_indicators || []).forEach(s => {
+      const li = document.createElement('li');
+      li.textContent = s;
+      aiList.appendChild(li);
+    });
+
+    (data.signals?.human_indicators || []).forEach(s => {
+      const li = document.createElement('li');
+      li.textContent = s;
+      humanList.appendChild(li);
+    });
+
+    if (!aiList.children.length) {
+      const li = document.createElement('li');
+      li.textContent = 'None detected';
+      aiList.appendChild(li);
+    }
+    if (!humanList.children.length) {
+      const li = document.createElement('li');
+      li.textContent = 'None detected';
+      humanList.appendChild(li);
+    }
+
+    resultCard.classList.add('active');
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearError();
+    resultCard.classList.remove('active');
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlInput.value.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || 'Something went wrong. Please try again.');
+      } else {
+        renderResult(data);
+      }
+    } catch (err) {
+      showError('Network error. Please check your connection and try again.');
+    } finally {
+      setLoading(false);
+    }
+  });
+</script>
+</body>
+</html>
