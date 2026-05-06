@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AIdetification — Is It AI?</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -163,7 +164,29 @@
       align-items: center;
       gap: 1.25rem;
       border-bottom: 1px solid var(--border);
+      position: relative;
     }
+
+    .share-btn {
+      margin-left: auto;
+      flex-shrink: 0;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 0.6rem;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.45rem 0.85rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: border-color 0.2s, color 0.2s;
+      white-space: nowrap;
+    }
+
+    .share-btn:hover { border-color: var(--accent-light); color: var(--accent-light); }
+    .share-btn.copied { border-color: var(--human-color); color: var(--human-color); }
 
     .verdict-icon {
       width: 56px;
@@ -389,6 +412,10 @@
         <h2 id="verdictLabel"></h2>
         <p class="page-title" id="pageTitle"></p>
       </div>
+      <button class="share-btn" id="shareBtn" type="button">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copy image
+      </button>
     </div>
     <div class="result-body">
       <div class="content-type-badge" id="contentTypeBadge"></div>
@@ -528,6 +555,49 @@
       showError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
+    }
+  });
+
+  document.getElementById('shareBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('shareBtn');
+    btn.textContent = 'Capturing…';
+    btn.disabled = true;
+
+    try {
+      const card = document.getElementById('resultCard');
+      const canvas = await html2canvas(card, {
+        backgroundColor: '#12121a',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+
+      // Try clipboard first
+      if (navigator.clipboard && window.ClipboardItem) {
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy image`;
+          btn.classList.remove('copied');
+        }, 2500);
+      } else {
+        // Fallback: download the image
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'aidentificator-result.png';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        btn.textContent = 'Downloaded!';
+        setTimeout(() => { btn.textContent = 'Copy image'; }, 2500);
+      }
+    } catch (err) {
+      btn.textContent = 'Failed — try again';
+      setTimeout(() => { btn.textContent = 'Copy image'; }, 2500);
+    } finally {
+      btn.disabled = false;
     }
   });
 </script>
