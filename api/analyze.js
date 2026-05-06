@@ -72,10 +72,42 @@ Respond in this exact JSON format:
     "ai_indicators": ["<indicator 1>", "<indicator 2>", ...],
     "human_indicators": ["<indicator 1>", "<indicator 2>", ...]
   },
-  "content_type": "<what kind of content this is, e.g. news article, blog post, product description, social media post, etc.>"
+  "content_type": "<what kind of content this is, e.g. news article, blog post, product description, social media post, tweet, etc.>"
 }
 
 Be direct and confident. Do not hedge your verdict. Give a clear answer.`;
+
+function isTwitterUrl(url) {
+  const host = new URL(url).hostname.replace('www.', '');
+  return host === 'twitter.com' || host === 'x.com';
+}
+
+async function fetchTwitterContent(url) {
+  // Use Twitter's public oEmbed API — no auth required
+  const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}&omit_script=true`;
+  const response = await fetch(oembedUrl, { timeout: 10000 });
+
+  if (!response.ok) {
+    throw new Error('Could not fetch this tweet. It may be from a private account or no longer exist.');
+  }
+
+  const data = await response.json();
+  const $ = cheerio.load(data.html);
+
+  // The tweet text is inside the <p> tag in the blockquote
+  const tweetText = $('p').first().text().trim();
+  const author = data.author_name || 'Unknown';
+
+  if (!tweetText) {
+    throw new Error('Could not extract tweet text.');
+  }
+
+  return {
+    text: `Tweet by ${author}:\n\n${tweetText}`,
+    title: `Tweet by ${author}`,
+    contentType: 'tweet',
+  };
+}
 
 async function fetchPageContent(url) {
   const response = await fetch(url, {
@@ -84,7 +116,7 @@ async function fetchPageContent(url) {
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.5',
     },
-    timeout: 15000,
+    timeout: 10000,
   });
 
   if (!response.ok) {
@@ -160,12 +192,13 @@ module.exports = async (req, res) => {
       return res.status(429).json({ error: 'Too many requests. Please wait a moment and try again.' });
     }
   } catch (e) {
-    // Don't block the request if Supabase is unreachable
     console.error('Rate limit check failed:', e.message);
   }
 
   try {
-    const { text, title, contentType } = await fetchPageContent(url);
+    const { text, title, contentType } = isTwitterUrl(url)
+      ? await fetchTwitterContent(url)
+      : await fetchPageContent(url);
 
     if (!text || text.trim().length < 50) {
       return res.status(422).json({ error: 'Could not extract enough text content from this URL. The page may require JavaScript or a login.' });
@@ -190,18 +223,22 @@ module.exports = async (req, res) => {
     analysis.title = title;
     analysis.url = url;
 
-    // Log to Supabase (non-blocking)
     logAnalysis(ip, url, analysis).catch(e => console.error('Log failed:', e.message));
 
     return res.json(analysis);
   } catch (err) {
-    console.error('Analysis error:', err);
+    console.error('Analysis error:', err.message);
 
-    if (err.code === 'ENOTFOUND' || err.message.includes('fetch')) {
+    // Only treat actual network/DNS errors as "can't reach URL"
+    if (err.name === 'FetchError' || err.code === 'ENOTFOUND' || err.code === 'ECONNREFUSED') {
       return res.status(502).json({ error: 'Could not reach that URL. Check that it is publicly accessible.' });
     }
-    if (err.message.includes('timeout')) {
+    if (err.type === 'request-timeout' || err.message.includes('network timeout')) {
       return res.status(504).json({ error: 'The URL took too long to respond.' });
+    }
+    // Surface specific errors (tweet not found, login required, etc.)
+    if (err.message.startsWith('Could not') || err.message.startsWith('Failed to fetch')) {
+      return res.status(422).json({ error: err.message });
     }
 
     return res.status(500).json({ error: 'Analysis failed. Please try again.' });
