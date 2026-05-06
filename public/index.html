@@ -523,6 +523,65 @@
     .image-preview.active { display: block; }
 
     .img-or { text-align: center; font-size: 0.78rem; color: var(--muted); margin: 0.75rem 0; }
+
+    .subjects-box {
+      display: none;
+      margin-top: 1.25rem;
+      background: rgba(124, 58, 237, 0.07);
+      border: 1px solid rgba(124, 58, 237, 0.25);
+      border-radius: 0.875rem;
+      padding: 1.125rem 1.5rem;
+    }
+
+    .subjects-box.active { display: block; }
+
+    .subjects-box-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--accent-light);
+      margin-bottom: 0.75rem;
+    }
+
+    .subject-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .subject-item {
+      display: flex;
+      align-items: baseline;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .subject-name {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .subject-confidence {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--accent-light);
+      background: rgba(124, 58, 237, 0.15);
+      border-radius: 999px;
+      padding: 0.15rem 0.55rem;
+      white-space: nowrap;
+    }
+
+    .subject-note {
+      font-size: 0.8rem;
+      color: var(--muted);
+      flex-basis: 100%;
+      padding-left: 0;
+      line-height: 1.4;
+    }
   </style>
 </head>
 <body>
@@ -614,6 +673,10 @@
           <p class="signal-group-title human">Human Signals</p>
           <ul class="signal-list human" id="humanSignals"></ul>
         </div>
+      </div>
+      <div class="subjects-box" id="subjectsBox">
+        <p class="subjects-box-title">🧑 Public Figures Identified</p>
+        <ul class="subject-list" id="subjectList"></ul>
       </div>
       <div class="verify-box" id="verifyBox">
         <p class="verify-box-title">⚠ Hard to determine — verify further</p>
@@ -782,6 +845,23 @@
       const li = document.createElement('li');
       li.textContent = 'None detected';
       humanList.appendChild(li);
+    }
+
+    // Show identified public figures
+    const subjectsBox = document.getElementById('subjectsBox');
+    const subjectList = document.getElementById('subjectList');
+    subjectList.innerHTML = '';
+    const subjects = data.subjects || [];
+    if (subjects.length > 0) {
+      subjects.forEach(s => {
+        const li = document.createElement('li');
+        li.className = 'subject-item';
+        li.innerHTML = `<span class="subject-name">${s.name}</span><span class="subject-confidence">${s.confidence}% match</span>${s.note ? `<span class="subject-note">${s.note}</span>` : ''}`;
+        subjectList.appendChild(li);
+      });
+      subjectsBox.classList.add('active');
+    } else {
+      subjectsBox.classList.remove('active');
     }
 
     // Show verification tips when confidence is low or verdict is uncertain

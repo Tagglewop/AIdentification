@@ -113,7 +113,20 @@ const IMAGE_PROMPT = `You are a forensic AI image analyst specializing in detect
 
 ## YOUR ANALYSIS PROCESS
 
-**STEP 1 — MODERN AI TELLS (most important for high-quality AI)**
+**STEP 1 — IDENTIFY ANY PUBLIC FIGURES OR CELEBRITIES**
+Before anything else, look at every face in the image and ask: do I recognize this person as a celebrity, politician, athlete, musician, actor, influencer, or other public figure?
+
+If you recognize anyone:
+- Name them and note how confident you are
+- AI-generated images of celebrities and public figures are EXTREMELY common — this recognition alone should raise your suspicion significantly
+- Ask: is this person depicted in a scenario consistent with their known public life, or is this implausible / out of character?
+- Ask: do their facial features match known reference photos accurately, or are there subtle distortions (slightly wrong nose shape, eye spacing, skin tone)?
+- Ask: would this image have been newsworthy or widely published if it were real? If yes and you've never seen it, it's likely fabricated.
+- Flag any image containing a recognizable public figure as at minimum "Likely AI-Generated" unless there is overwhelming photographic evidence of authenticity.
+
+If you do not recognize anyone, proceed to the next steps.
+
+**STEP 2 — MODERN AI TELLS (most important for high-quality AI)**
 These are what catches modern photorealistic AI:
 - **Skin micro-texture**: Real skin at close range shows actual pores, fine veins, subtle discoloration, and texture variation across the face. AI skin — even when not "waxy" — often has an internal glow or impossible uniformity. Pay special attention to older subjects: real elderly skin has age spots, visible broken capillaries, uneven pigmentation, and deep texture variation. AI-generated older skin is often too smooth and uniformly "weathered" without these specifics.
 - **Lighting plausibility**: Is the lighting flattering in a way that would be unlikely in a candid or realistic setting? AI images are lit like professional shoots even in casual contexts (car selfies, snapshots). Real candid photos have harsh shadows, unflattering angles, blown highlights.
@@ -125,14 +138,14 @@ These are what catches modern photorealistic AI:
 - **Subject integration**: Do multiple subjects (people, animals, objects) feel naturally integrated in the same space and light, or does each look like it was placed into the scene separately?
 - **The "too cute / too perfect" factor**: AI images of animals, children, and people together are often engineered to be maximally appealing. Real photos capture an imperfect moment.
 
-**STEP 2 — CLASSIC ARTIFACT CHECK (still relevant)**
+**STEP 3 — CLASSIC ARTIFACT CHECK (still relevant)**
 - Hands and fingers: count carefully, check proportions, look for fused/extra digits
 - Eyes: check for authentic reflections, real iris detail, natural asymmetry
 - Ears and teeth: simplified or melted geometry
 - Text in the image: garbled, inconsistent, or misspelled
 - Watermarks: Midjourney, DALL-E, Stable Diffusion, Adobe Firefly
 
-**STEP 3 — CAMERA AUTHENTICITY CHECK**
+**STEP 4 — CAMERA AUTHENTICITY CHECK**
 Real photographs carry physical evidence of optics and sensors:
 - Film grain or digital sensor noise (should be visible, especially in darker areas)
 - Chromatic aberration at high-contrast edges (slight color fringing)
@@ -141,10 +154,10 @@ Real photographs carry physical evidence of optics and sensors:
 - Motion blur where expected (moving subjects, handheld shake)
 - Depth-of-field that is optically correct — foreground subjects sharp, background blur gradual
 
-**STEP 4 — REVERSE-CHECK EACH "HUMAN" SIGNAL**
+**STEP 5 — REVERSE-CHECK EACH "HUMAN" SIGNAL**
 For every signal you think points to human creation, explicitly ask: "Can modern AI (Midjourney v6, Flux, DALL-E 3) produce this?" If yes, remove it from your human evidence. Only count as human evidence what AI genuinely cannot replicate reliably.
 
-**STEP 5 — WEIGH THE EVIDENCE**
+**STEP 6 — WEIGH THE EVIDENCE**
 A single strong modern-AI tell outweighs many weak "absence of artifact" observations. Focus on:
 - What is present that shouldn't be (skin too smooth, light too flattering, scene too composed)
 - Not on what is absent (no extra fingers ≠ human)
@@ -164,8 +177,13 @@ Respond in this exact JSON format (no other text):
     "ai_indicators": ["<specific observation about this image>", ...],
     "human_indicators": ["<specific observation about this image>", ...]
   },
+  "subjects": [
+    { "name": "<full name of recognized public figure>", "confidence": <integer 50-100>, "note": "<brief note about why their presence or depiction is significant>" }
+  ],
   "content_type": "<specific image type: portrait photo, landscape photo, digital illustration, etc.>"
-}`;
+}
+
+If no public figures are recognized, set "subjects" to an empty array [].`;
 
 function isTwitterUrl(url) {
   const host = new URL(url).hostname.replace('www.', '');
