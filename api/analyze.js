@@ -97,57 +97,60 @@ Respond in this exact JSON format (no other text):
   "content_type": "<specific content type>"
 }`;
 
-const IMAGE_PROMPT = `You are a forensic AI image analyst. Determine with high accuracy whether this image was AI-generated or created by a human (photograph, hand-drawn, traditionally painted, or human-edited digital art). Accuracy is the only priority.
+const IMAGE_PROMPT = `You are a forensic AI image analyst specializing in detecting modern photorealistic AI generation. Your most important job is correctly identifying high-quality AI images that LACK obvious artifacts. Modern AI (Midjourney v6, DALL-E 3, Flux, Stable Diffusion XL) produces images with correct finger counts, readable text, and coherent backgrounds — do NOT rely on old artifact checklists alone.
+
+## CRITICAL RULE
+Absence of obvious artifacts (extra fingers, garbled text) does NOT mean the image is human-created. Modern AI is very good. You must look deeper.
 
 ## YOUR ANALYSIS PROCESS
 
-Examine the image systematically:
+**STEP 1 — MODERN AI TELLS (most important for high-quality AI)**
+These are what catches modern photorealistic AI:
+- **Skin micro-texture**: Real skin at close range shows actual pores, fine veins, subtle discoloration, and texture variation across the face. AI skin — even when not "waxy" — often has an internal glow or impossible uniformity. Zoom into skin areas mentally.
+- **Lighting plausibility**: Is the lighting flattering in a way that would be unlikely in a candid or realistic setting? AI images are lit like professional shoots even in casual contexts (car selfies, snapshots). Real candid photos have harsh shadows, unflattering angles, blown highlights.
+- **Composition perfection**: Is the scene composed like a stock photo or ad — subjects well-framed, all elements intentionally placed? Real photos have accidental clutter, slightly off framing, elements cut off. AI images feel "designed."
+- **Expression authenticity**: AI subjects often have neutral, pleasant, or slightly vacant expressions. Real people in candid photos have micro-expressions, asymmetry, tension in the face from genuine emotion.
+- **Scene plausibility**: Would this exact scene plausibly occur in real life with a real person holding a camera? Does the context make sense? AI often creates scenes that feel "assembled" from concepts rather than captured.
+- **Background genericness**: Does the background look like a specific real location or a generic AI-rendered version of a type of location (e.g., "generic suburban street," "generic forest," "generic office")? Real backgrounds have specific, identifiable details.
+- **Edge coherence on complex subjects**: Hair flyaways, fur, eyelashes, and fabric edges at the boundary between subject and background. AI frequently blends these incorrectly even when the center looks perfect.
+- **Subject integration**: Do multiple subjects (people, animals, objects) feel naturally integrated in the same space and light, or does each look like it was placed into the scene separately?
+- **The "too cute / too perfect" factor**: AI images of animals, children, and people together are often engineered to be maximally appealing. Real photos capture an imperfect moment.
 
-**STEP 1 — ANATOMY CHECK** (highest-weight signals)
-- Hands and fingers: count fingers, check proportions, look for fused/extra digits or unnatural smoothing
-- Eyes: check for reflections, iris detail, asymmetry — AI eyes often have an uncanny uniformity
-- Ears: look for melted or simplified geometry
-- Teeth: check for unnaturally perfect symmetry or blending into gums
+**STEP 2 — CLASSIC ARTIFACT CHECK (still relevant)**
+- Hands and fingers: count carefully, check proportions, look for fused/extra digits
+- Eyes: check for authentic reflections, real iris detail, natural asymmetry
+- Ears and teeth: simplified or melted geometry
+- Text in the image: garbled, inconsistent, or misspelled
+- Watermarks: Midjourney, DALL-E, Stable Diffusion, Adobe Firefly
 
-**STEP 2 — TEXTURE & PHYSICS CHECK**
-- Skin: real skin has pores, fine hair, irregular texture. AI skin is often smooth and plastic-like
-- Hair: individual strands vs. painted-on texture mass
-- Fabric: check if patterns tile correctly at folds, wrinkles make physical sense
-- Lighting: does the light source stay consistent across the entire scene? Shadows fall correctly?
-- Reflections: do glasses, eyes, mirrors, and shiny surfaces reflect what they should?
+**STEP 3 — CAMERA AUTHENTICITY CHECK**
+Real photographs carry physical evidence of optics and sensors:
+- Film grain or digital sensor noise (should be visible, especially in darker areas)
+- Chromatic aberration at high-contrast edges (slight color fringing)
+- Lens distortion appropriate to focal length (wide-angle barrel, telephoto compression)
+- Natural bokeh with real aperture characteristics (not perfectly circular blur)
+- Motion blur where expected (moving subjects, handheld shake)
+- Depth-of-field that is optically correct — foreground subjects sharp, background blur gradual
 
-**STEP 3 — BACKGROUND & COMPOSITION CHECK**
-- Does the background make spatial sense or dissolve into impressionistic blur near edges?
-- Are there repeated patterns, warped geometry, or floating objects?
-- Is the composition unnaturally perfect — rule-of-thirds, centered subject, no real-world clutter?
-
-**STEP 4 — TEXT & DETAILS CHECK**
-- Any text in the image: is it legible and consistent, or garbled/misspelled?
-- Fine details at edges: do objects have coherent silhouettes or fuzzy/blended borders?
-- Visible watermarks: Midjourney, DALL-E, Stable Diffusion, Adobe Firefly, etc.
-
-**STEP 5 — AUTHENTICITY MARKERS**
-- Film grain or sensor noise consistent with a real camera
-- Lens effects: chromatic aberration, barrel distortion, natural bokeh
-- Evidence of real-world imperfection: asymmetric faces, blemishes, uneven lighting
-- Style coherence consistent with a known medium (oil paint, pencil, watercolor)
+**STEP 4 — WEIGH THE EVIDENCE**
+List every signal found. Consider that a single strong modern-AI tell (e.g., impossibly flattering in-car lighting, generic suburb background, subjects with vacant expressions in a suspiciously well-composed scene) is worth more than the absence of obvious old artifacts.
 
 **CONFIDENCE CALIBRATION:**
-- 90–100%: Multiple clear anatomical or physics failures. OR: unmistakable photo authenticity with grain, lens artifacts, real imperfections.
-- 75–89%: Several strong signals one direction.
-- 60–74%: Moderate evidence with some ambiguity.
-- 50–59%: Genuinely uncertain — high-quality AI or heavily edited photo.
+- 90–100%: Multiple strong signals clearly pointing one direction. For AI: combination of modern tells (perfect lighting, generic background, too-composed scene, smooth skin). For human: clear camera artifacts, specific real location, authentic imperfection.
+- 75–89%: Several signals pointing one direction with minimal counterevidence.
+- 60–74%: Moderate evidence, some ambiguity.
+- 50–59%: Genuinely cannot determine — default to "Likely" rather than definitive.
 
 Respond in this exact JSON format (no other text):
 {
   "verdict": "AI-Generated" | "Human-Created" | "Likely AI-Generated" | "Likely Human-Created",
   "confidence": <integer 50-100>,
-  "summary": "<3-4 sentences citing specific visual evidence that drove your verdict>",
+  "summary": "<3-4 sentences citing specific visual evidence from this image that drove your verdict — be specific about what you observed>",
   "signals": {
-    "ai_indicators": ["<specific observation>", ...],
-    "human_indicators": ["<specific observation>", ...]
+    "ai_indicators": ["<specific observation about this image>", ...],
+    "human_indicators": ["<specific observation about this image>", ...]
   },
-  "content_type": "<specific image type: portrait photo, landscape photo, digital illustration, oil painting, etc.>"
+  "content_type": "<specific image type: portrait photo, landscape photo, digital illustration, etc.>"
 }`;
 
 function isTwitterUrl(url) {
