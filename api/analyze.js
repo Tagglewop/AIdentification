@@ -97,69 +97,86 @@ function isRedditUrl(url) {
   return host === 'reddit.com';
 }
 
-async function fetchRedditContent(url) {
-  // old.reddit.com renders full HTML server-side — no JS, no API key needed
-  const oldUrl = url
-    .replace('www.reddit.com', 'old.reddit.com')
-    .replace('new.reddit.com', 'old.reddit.com')
-    .replace(/\?.*$/, '')
-    .replace(/\/$/, '');
+async function getRedditToken() {
+  if (!process.env.REDDIT_CLIENT_ID || !process.env.REDDIT_CLIENT_SECRET) {
+    throw new Error('Reddit API credentials are not configured. Add REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET in Vercel environment variables.');
+  }
 
-  const response = await fetch(oldUrl, {
+  const credentials = Buffer.from(
+    `${process.env.REDDIT_CLIENT_ID}:${process.env.REDDIT_CLIENT_SECRET}`
+  ).toString('base64');
+
+  const response = await fetch('https://www.reddit.com/api/v1/access_token', {
+    method: 'POST',
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.5',
-      'Cookie': 'over18=1; reddit_first=%7B%22firsttime%22%3A%22first%22%7D',
+      'Authorization': `Basic ${credentials}`,
+      'User-Agent': 'AIdetificator/1.0',
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 'grant_type=client_credentials',
+    timeout: 8000,
+  });
+
+  if (!response.ok) {
+    throw new Error('Reddit authentication failed. Check that REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET are correct.');
+  }
+
+  const data = await response.json();
+  if (!data.access_token) {
+    throw new Error('Reddit did not return an access token. Check your API credentials.');
+  }
+  return data.access_token;
+}
+
+async function fetchRedditContent(url) {
+  const match = url.match(/comments\/([a-z0-9]+)/i);
+  if (!match) {
+    throw new Error('Could not extract post ID from this Reddit URL.');
+  }
+  const postId = match[1];
+
+  const token = await getRedditToken();
+
+  const response = await fetch(`https://oauth.reddit.com/comments/${postId}?limit=1&depth=1&raw_json=1`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'User-Agent': 'AIdetificator/1.0',
+      'Accept': 'application/json',
     },
     timeout: 10000,
   });
 
-  if (response.status === 403 || response.status === 401) {
-    throw new Error('This Reddit post is from a private community or requires a login.');
+  if (response.status === 403) {
+    throw new Error('This Reddit post is from a private community.');
+  }
+  if (response.status === 404) {
+    throw new Error('This Reddit post could not be found. It may have been deleted.');
   }
   if (!response.ok) {
     throw new Error(`Could not fetch Reddit post (${response.status}).`);
   }
 
-  const html = await response.text();
-  const $ = cheerio.load(html);
+  const data = await response.json();
+  const post = data[0]?.data?.children?.[0]?.data;
 
-  // Detect redirect to login/app page
-  if ($('body').text().toLowerCase().includes('sign up to continue') ||
-      $('body').text().toLowerCase().includes('reddit is home to')) {
-    throw new Error('Reddit is blocking this request. Try pasting the post text directly instead of the URL.');
+  if (!post) {
+    throw new Error('Could not parse Reddit post data.');
   }
 
-  $('script, style, .side, .footer, nav').remove();
-
-  const title = $('a.title').first().text().trim()
-    || $('p.title a').first().text().trim()
-    || $('h1').first().text().trim()
-    || 'Reddit Post';
-
-  const author = $('a.author').first().text().trim() || 'unknown';
-
-  // Try multiple selectors for post body
-  let body = $('.expando .usertext-body .md').first().text().trim()
-    || $('.usertext-body .md').first().text().trim()
-    || $('.md').first().text().trim();
+  const title = post.title || '';
+  const body = post.selftext || '';
+  const author = post.author || 'unknown';
+  const subreddit = post.subreddit_name_prefixed || 'Reddit';
 
   if (body === '[deleted]' || body === '[removed]') {
     throw new Error('This Reddit post has been deleted or removed.');
   }
 
-  // If still no body, fall back to general page text
-  if (!body) {
-    body = $('body').text().replace(/\s+/g, ' ').trim();
-    if (body.length > 6000) body = body.substring(0, 6000);
-  }
-
   if (!body && !title) {
-    throw new Error('Could not extract text from this Reddit post. It may be an image or link post.');
+    throw new Error('This Reddit post has no text content to analyze. It may be a link or image post.');
   }
 
-  const text = [title, `by u/${author} on Reddit`, body]
+  const text = [title, `by u/${author} on ${subreddit}`, body]
     .filter(Boolean)
     .join('\n\n')
     .replace(/\s+/g, ' ')
@@ -167,7 +184,7 @@ async function fetchRedditContent(url) {
 
   return {
     text,
-    title,
+    title: title || 'Reddit Post',
     contentType: 'Reddit post',
   };
 }
