@@ -354,6 +354,55 @@
     }
     .thread-warning.active { display: block; }
 
+    .verify-box {
+      display: none;
+      margin-top: 1.5rem;
+      background: rgba(234, 179, 8, 0.06);
+      border: 1px solid rgba(234, 179, 8, 0.2);
+      border-radius: 0.875rem;
+      padding: 1.25rem 1.5rem;
+    }
+
+    .verify-box.active { display: block; }
+
+    .verify-box-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fde68a;
+      margin-bottom: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .verify-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .verify-list li {
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .verify-list a {
+      color: #fde68a;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .verify-list a:hover { text-decoration: underline; }
+
+    .verify-list li::before {
+      content: '→ ';
+      color: #fde68a;
+    }
+
     /* Error */
     .error-box {
       display: none;
@@ -566,6 +615,10 @@
           <ul class="signal-list human" id="humanSignals"></ul>
         </div>
       </div>
+      <div class="verify-box" id="verifyBox">
+        <p class="verify-box-title">⚠ Hard to determine — verify further</p>
+        <ul class="verify-list" id="verifyList"></ul>
+      </div>
     </div>
   </div>
 </main>
@@ -729,6 +782,40 @@
       const li = document.createElement('li');
       li.textContent = 'None detected';
       humanList.appendChild(li);
+    }
+
+    // Show verification tips when confidence is low or verdict is uncertain
+    const isImage = inputMode === 'image';
+    const isUncertain = data.confidence < 80 || data.verdict.toLowerCase().startsWith('likely');
+    const verifyBox = document.getElementById('verifyBox');
+    const verifyList = document.getElementById('verifyList');
+    verifyList.innerHTML = '';
+
+    if (isUncertain) {
+      const analyzedUrl = data.url;
+      const tips = isImage ? [
+        analyzedUrl
+          ? `<a href="https://images.google.com/searchbyimage?image_url=${encodeURIComponent(analyzedUrl)}" target="_blank" rel="noopener">Google reverse image search</a> — if this image appears on AI art sites or "this person does not exist" databases, it's AI`
+          : `<a href="https://images.google.com" target="_blank" rel="noopener">Google reverse image search</a> — upload the image; if it appears on AI generation sites it's confirmed AI`,
+        `<a href="https://jimpl.com" target="_blank" rel="noopener">Check EXIF metadata (jimpl.com)</a> — real phone photos contain camera model, GPS, and timestamp; AI images usually have none`,
+        `<a href="https://hivemoderation.com/ai-generated-content-detection" target="_blank" rel="noopener">Hive Moderation AI image detector</a> — specialized model trained on millions of AI images`,
+        `<a href="https://contentatscale.ai/ai-image-detector/" target="_blank" rel="noopener">Content at Scale AI image detector</a> — second opinion from a different model`,
+      ] : [
+        `<a href="https://gptzero.me" target="_blank" rel="noopener">GPTZero</a> — specialized AI text detector with perplexity and burstiness scoring`,
+        `<a href="https://contentatscale.ai/ai-content-detector/" target="_blank" rel="noopener">Content at Scale</a> — sentence-level AI highlighting`,
+        `<a href="https://writer.com/ai-content-detector/" target="_blank" rel="noopener">Writer AI detector</a> — third-party second opinion`,
+        `Look for the author's other writing — if their style is inconsistent across pieces, one of them may be AI`,
+      ];
+
+      tips.forEach(tip => {
+        const li = document.createElement('li');
+        li.innerHTML = tip;
+        verifyList.appendChild(li);
+      });
+
+      verifyBox.classList.add('active');
+    } else {
+      verifyBox.classList.remove('active');
     }
 
     resultCard.classList.add('active');
