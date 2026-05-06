@@ -432,6 +432,48 @@
 
     textarea#textInput::placeholder { color: var(--muted); }
     textarea#textInput:focus { border-color: var(--accent); }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 0.875rem;
+      padding: 2rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      margin-bottom: 0.75rem;
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(124, 58, 237, 0.04);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-zone-text { color: var(--muted); font-size: 0.875rem; line-height: 1.6; pointer-events: none; }
+    .drop-zone-text strong { color: var(--text); }
+
+    .image-preview {
+      display: none;
+      width: 100%;
+      max-height: 280px;
+      object-fit: contain;
+      border-radius: 0.75rem;
+      margin-bottom: 0.75rem;
+      border: 1px solid var(--border);
+    }
+
+    .image-preview.active { display: block; }
+
+    .img-or { text-align: center; font-size: 0.78rem; color: var(--muted); margin: 0.75rem 0; }
   </style>
 </head>
 <body>
@@ -447,6 +489,7 @@
     <div class="mode-toggle">
       <button type="button" class="mode-btn active" id="modeUrl">Paste a link</button>
       <button type="button" class="mode-btn" id="modeText">Paste text</button>
+      <button type="button" class="mode-btn" id="modeImage">Image</button>
     </div>
     <div class="reddit-notice" id="redditNotice">
       Reddit blocks automated access. Copy the post text and use <strong>Paste text</strong> instead.
@@ -460,6 +503,23 @@
         <textarea id="textInput" placeholder="Paste the text you want to analyze here…"></textarea>
         <div class="url-row" style="margin-bottom:0">
           <button type="submit" id="submitBtnText" form="analyzeForm">Analyze</button>
+        </div>
+      </div>
+      <div id="imageRow" style="display:none">
+        <img class="image-preview" id="imagePreview" alt="Preview" />
+        <div class="drop-zone" id="dropZone">
+          <input type="file" id="fileInput" accept="image/*" />
+          <div class="drop-zone-text">
+            <strong>Click to upload</strong> or drag &amp; drop<br>
+            JPG, PNG, WebP, GIF &mdash; max 4MB
+          </div>
+        </div>
+        <p class="img-or">— or paste an image URL —</p>
+        <div class="url-row" style="margin-bottom:0.75rem">
+          <input type="url" id="imageUrlInput" placeholder="https://example.com/image.jpg" autocomplete="off" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:0.75rem;padding:0.875rem 1.125rem;font-size:0.95rem;color:var(--text);outline:none;" />
+        </div>
+        <div class="url-row" style="margin-bottom:0">
+          <button type="submit" id="submitBtnImage" form="analyzeForm" style="width:100%">Analyze Image</button>
         </div>
       </div>
       <p class="hint">Works on articles, blog posts, product descriptions, social profiles, and more.</p>
@@ -523,24 +583,62 @@
   const errorBox = document.getElementById('errorBox');
   const resultCard = document.getElementById('resultCard');
 
-  let textMode = false;
+  let inputMode = 'url'; // 'url' | 'text' | 'image'
+  let selectedFileData = null;
+  let selectedFileType = null;
 
-  document.getElementById('modeUrl').addEventListener('click', () => {
-    textMode = false;
-    document.getElementById('modeUrl').classList.add('active');
-    document.getElementById('modeText').classList.remove('active');
-    document.getElementById('urlRow').style.display = '';
-    document.getElementById('textRow').style.display = 'none';
+  function switchMode(mode) {
+    inputMode = mode;
+    ['modeUrl', 'modeText', 'modeImage'].forEach(id => {
+      document.getElementById(id).classList.toggle('active', id === 'mode' + mode.charAt(0).toUpperCase() + mode.slice(1));
+    });
+    document.getElementById('urlRow').style.display = mode === 'url' ? '' : 'none';
+    document.getElementById('textRow').style.display = mode === 'text' ? 'block' : 'none';
+    document.getElementById('imageRow').style.display = mode === 'image' ? 'block' : 'none';
     document.getElementById('redditNotice').style.display = 'none';
+  }
+
+  document.getElementById('modeUrl').addEventListener('click', () => switchMode('url'));
+  document.getElementById('modeText').addEventListener('click', () => switchMode('text'));
+  document.getElementById('modeImage').addEventListener('click', () => switchMode('image'));
+
+  // File upload handling
+  const fileInput = document.getElementById('fileInput');
+  const dropZone = document.getElementById('dropZone');
+  const imagePreview = document.getElementById('imagePreview');
+
+  function handleFile(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    if (file.size > 4 * 1024 * 1024) {
+      showError('Image must be under 4MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target.result;
+      // Strip the data:image/...;base64, prefix
+      selectedFileData = dataUrl.split(',')[1];
+      selectedFileType = file.type;
+      imagePreview.src = dataUrl;
+      imagePreview.classList.add('active');
+      document.getElementById('imageUrlInput').value = '';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    handleFile(e.dataTransfer.files[0]);
   });
 
-  document.getElementById('modeText').addEventListener('click', () => {
-    textMode = true;
-    document.getElementById('modeText').classList.add('active');
-    document.getElementById('modeUrl').classList.remove('active');
-    document.getElementById('urlRow').style.display = 'none';
-    document.getElementById('textRow').style.display = 'block';
-    document.getElementById('redditNotice').style.display = 'none';
+  document.getElementById('imageUrlInput').addEventListener('input', () => {
+    selectedFileData = null;
+    selectedFileType = null;
+    imagePreview.classList.remove('active');
   });
 
   function isRedditUrl(val) {
@@ -556,10 +654,12 @@
   });
 
   function setLoading(on) {
-    submitBtn.disabled = on;
-    document.getElementById('submitBtnText').disabled = on;
-    submitBtn.textContent = on ? 'Analyzing…' : 'Analyze';
-    document.getElementById('submitBtnText').textContent = on ? 'Analyzing…' : 'Analyze';
+    ['submitBtn', 'submitBtnText', 'submitBtnImage'].forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = on;
+      el.textContent = on ? 'Analyzing…' : (id === 'submitBtnImage' ? 'Analyze Image' : 'Analyze');
+    });
     loader.classList.toggle('active', on);
   }
 
@@ -575,7 +675,7 @@
   }
 
   function isAiVerdict(verdict) {
-    return verdict.toLowerCase().includes('ai');
+    return verdict.toLowerCase().includes('ai') || verdict.toLowerCase().includes('generated');
   }
 
   function renderResult(data) {
@@ -640,9 +740,23 @@
     resultCard.classList.remove('active');
     setLoading(true);
 
-    const body = textMode
-      ? { text: textInput.value.trim() }
-      : { url: urlInput.value.trim() };
+    let body;
+    if (inputMode === 'text') {
+      body = { text: textInput.value.trim() };
+    } else if (inputMode === 'image') {
+      const imgUrl = document.getElementById('imageUrlInput').value.trim();
+      if (selectedFileData) {
+        body = { imageData: selectedFileData, mediaType: selectedFileType };
+      } else if (imgUrl) {
+        body = { imageUrl: imgUrl };
+      } else {
+        showError('Please upload an image or paste an image URL.');
+        setLoading(false);
+        return;
+      }
+    } else {
+      body = { url: urlInput.value.trim() };
+    }
 
     try {
       const res = await fetch('/api/analyze', {
