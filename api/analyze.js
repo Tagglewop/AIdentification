@@ -99,6 +99,16 @@ Respond in this exact JSON format (no other text):
 
 const IMAGE_PROMPT = `You are a forensic AI image analyst specializing in detecting modern photorealistic AI generation. Your most important job is correctly identifying high-quality AI images that LACK obvious artifacts. Modern AI (Midjourney v6, DALL-E 3, Flux, Stable Diffusion XL) produces images with correct finger counts, readable text, and coherent backgrounds — do NOT rely on old artifact checklists alone.
 
+## HARD-STOP RULES — CHECK THESE FIRST
+Some signals are definitive proof of AI generation. If you find any of the following, stop weighing evidence and immediately return "AI-Generated" at 90–98% confidence. Do not let authentic-looking surroundings, physically accurate details, or realistic lighting override these:
+
+- **Garbled, nonsensical, or pseudo-alphabetic text anywhere in the image** — tire sidewalls, license plates, signs, labels, clothing, packaging, tattoos, dashboards. One instance of gibberish text is conclusive. AI cannot fabricate readable embedded text reliably.
+- **Extra, fused, or missing fingers on a clearly visible hand**
+- **Visible AI watermark** (Midjourney, DALL-E, Stable Diffusion, Adobe Firefly, etc.)
+- **Anatomically impossible body geometry** on a clearly visible and in-focus subject
+
+When a hard-stop signal is present: state it clearly as the primary finding, assign 90%+ confidence, and do not list surrounding realism (accurate physics, realistic grime, correct lighting) as counterevidence. Those details are irrelevant once a definitive artifact is confirmed — modern AI generates them routinely as filler. A convincingly rendered flat tire next to unreadable text is still AI.
+
 ## CRITICAL RULES
 1. Absence of obvious artifacts (extra fingers, garbled text) does NOT mean the image is human-created. Modern AI is very good. You must look deeper.
 2. The following are NOT reliable evidence of human creation — modern AI replicates all of them routinely. Do NOT list these as human signals:
