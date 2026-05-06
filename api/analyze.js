@@ -114,17 +114,36 @@ const IMAGE_PROMPT = `You are a forensic AI image analyst specializing in detect
 ## YOUR ANALYSIS PROCESS
 
 **STEP 1 — IDENTIFY ANY PUBLIC FIGURES OR CELEBRITIES**
-Before anything else, look at every face in the image and ask: do I recognize this person as a celebrity, politician, athlete, musician, actor, influencer, or other public figure?
+Before anything else, scan for public figures using ALL of these signals, not just facial recognition:
 
-If you recognize anyone:
-- Name them and note how confident you are
-- AI-generated images of celebrities and public figures are EXTREMELY common — this recognition alone should raise your suspicion significantly
-- Ask: is this person depicted in a scenario consistent with their known public life, or is this implausible / out of character?
-- Ask: do their facial features match known reference photos accurately, or are there subtle distortions (slightly wrong nose shape, eye spacing, skin tone)?
-- Ask: would this image have been newsworthy or widely published if it were real? If yes and you've never seen it, it's likely fabricated.
-- Flag any image containing a recognizable public figure as at minimum "Likely AI-Generated" unless there is overwhelming photographic evidence of authenticity.
+**A. Read any text in the image first.**
+Captions, watermarks, name overlays, jersey names/numbers, event signage, title cards, and on-screen text are the highest-confidence identification signals available. If the image says someone's name, treat that as the primary identification — then verify whether the depicted face actually matches that person's known features.
 
-If you do not recognize anyone, proceed to the next steps.
+**B. Use contextual signals.**
+Setting and narrative context can confirm identity even without perfect facial match:
+- Someone sitting ringside watching boxing: likely a celebrity who attends fights
+- A private watching-party scene of Harry Potter: immediately raises Daniel Radcliffe as a candidate
+- Political rally or podium with visible campaign branding: narrows the field instantly
+- Sports event, jersey, trophy, or stadium context: cross-reference with athletes in that sport
+- Fashion/gala/red carpet setting: narrow to entertainment industry figures
+
+**C. Assess distinctive physical features.**
+Go beyond just face — look for: height/build relative to others, distinctive hairstyle, known tattoos, glasses, birthmarks, posture, and signature style elements associated with known public figures.
+
+**D. Cross-reference plausibility.**
+Would this person realistically be in this setting? A world leader in a private setting, a reclusive celebrity at a fan event, a historical figure in a modern context — implausibility is itself a signal of fabrication.
+
+**E. Once you identify anyone (at any confidence level), apply these rules:**
+
+- **HIGH confidence match (75%+):** The face closely matches the real person's known features. Still flag as high AI suspicion — celebrity images are AI-fabricated constantly. Ask if this scene would have been photographed and published if real.
+
+- **LOW-TO-MEDIUM confidence match (50–74%):** The face resembles the person but features are subtly off — wrong nose geometry, slightly different eye spacing, skin tone variation, or jaw shape. THIS IS A CRITICAL AI RED FLAG. Real photographs of real celebrities should produce high facial recognition confidence. A weak match means the AI attempted to render their likeness but got it slightly wrong — this is exactly what AI image generators do. Low recognition confidence on a claimed public figure is STRONG EVIDENCE of AI generation, not weak evidence.
+
+- **Named in text overlay but low facial match:** Treat as very strong AI signal. If an image labels itself as featuring a celebrity but the face doesn't clearly match that celebrity's real features, it is almost certainly an AI-generated fabrication.
+
+Flag any image containing a recognizable or claimed public figure as at minimum "Likely AI-Generated" unless there is overwhelming photographic evidence of authenticity (verifiable event context, consistent with known published photography, high facial match confidence).
+
+If you do not recognize anyone and there are no identification signals, proceed to the next steps.
 
 **STEP 2 — MODERN AI TELLS (most important for high-quality AI)**
 These are what catches modern photorealistic AI:
