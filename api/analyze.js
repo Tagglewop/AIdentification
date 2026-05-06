@@ -92,106 +92,6 @@ function isTwitterUrl(url) {
   return host === 'twitter.com' || host === 'x.com';
 }
 
-function isRedditUrl(url) {
-  const host = new URL(url).hostname.replace('www.', '').replace('old.', '').replace('new.', '');
-  return host === 'reddit.com';
-}
-
-async function getRedditToken() {
-  if (!process.env.REDDIT_CLIENT_ID || !process.env.REDDIT_CLIENT_SECRET) {
-    throw new Error('Reddit API credentials are not configured. Add REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET in Vercel environment variables.');
-  }
-
-  const credentials = Buffer.from(
-    `${process.env.REDDIT_CLIENT_ID}:${process.env.REDDIT_CLIENT_SECRET}`
-  ).toString('base64');
-
-  const params = new URLSearchParams({ grant_type: 'client_credentials' });
-
-  const response = await fetch('https://www.reddit.com/api/v1/access_token', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Basic ${credentials}`,
-      // Reddit requires this exact format or it rejects the request
-      'User-Agent': 'web:aidentificator:1.0 (by /u/aidentificator)',
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: params.toString(),
-    timeout: 8000,
-  });
-
-  const data = await response.json();
-
-  if (!response.ok || data.error) {
-    throw new Error(`Reddit auth error: ${data.error || response.status}. Go to reddit.com/prefs/apps — the Client ID is the short string directly under the app name (above "secret:"), not the secret itself.`);
-  }
-
-  if (!data.access_token) {
-    throw new Error('Reddit did not return an access token. Check your API credentials.');
-  }
-  return data.access_token;
-}
-
-async function fetchRedditContent(url) {
-  const match = url.match(/comments\/([a-z0-9]+)/i);
-  if (!match) {
-    throw new Error('Could not extract post ID from this Reddit URL.');
-  }
-  const postId = match[1];
-
-  const token = await getRedditToken();
-
-  const response = await fetch(`https://oauth.reddit.com/comments/${postId}?limit=1&depth=1&raw_json=1`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'User-Agent': 'AIdetificator/1.0',
-      'Accept': 'application/json',
-    },
-    timeout: 10000,
-  });
-
-  if (response.status === 403) {
-    throw new Error('This Reddit post is from a private community.');
-  }
-  if (response.status === 404) {
-    throw new Error('This Reddit post could not be found. It may have been deleted.');
-  }
-  if (!response.ok) {
-    throw new Error(`Could not fetch Reddit post (${response.status}).`);
-  }
-
-  const data = await response.json();
-  const post = data[0]?.data?.children?.[0]?.data;
-
-  if (!post) {
-    throw new Error('Could not parse Reddit post data.');
-  }
-
-  const title = post.title || '';
-  const body = post.selftext || '';
-  const author = post.author || 'unknown';
-  const subreddit = post.subreddit_name_prefixed || 'Reddit';
-
-  if (body === '[deleted]' || body === '[removed]') {
-    throw new Error('This Reddit post has been deleted or removed.');
-  }
-
-  if (!body && !title) {
-    throw new Error('This Reddit post has no text content to analyze. It may be a link or image post.');
-  }
-
-  const text = [title, `by u/${author} on ${subreddit}`, body]
-    .filter(Boolean)
-    .join('\n\n')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  return {
-    text,
-    title: title || 'Reddit Post',
-    contentType: 'Reddit post',
-  };
-}
 
 async function fetchTwitterContent(url) {
   // Use Twitter's public oEmbed API — no auth required
@@ -283,30 +183,8 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed.' });
   }
 
-  const { url } = req.body || {};
+  const { url, text: rawText } = req.body || {};
 
-  if (!url || typeof url !== 'string') {
-    return res.status(400).json({ error: 'A valid URL is required.' });
-  }
-
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(url);
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-      throw new Error();
-    }
-  } catch {
-    return res.status(400).json({ error: 'Invalid URL. Please include http:// or https://' });
-  }
-
-  // SSRF protection
-  const hostname = parsedUrl.hostname.toLowerCase();
-  const blocked = ['localhost', '127.0.0.1', '0.0.0.0', '::1', '169.254.', '10.', '192.168.', '172.'];
-  if (blocked.some(b => hostname.startsWith(b) || hostname === b)) {
-    return res.status(400).json({ error: 'Private or local URLs are not allowed.' });
-  }
-
-  // Rate limiting via Supabase
   const ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
   try {
     if (await isRateLimited(ip)) {
@@ -317,14 +195,38 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { text, title, contentType, isThread } = isTwitterUrl(url)
-      ? await fetchTwitterContent(url)
-      : isRedditUrl(url)
-        ? await fetchRedditContent(url)
-        : await fetchPageContent(url);
+    let text, title, contentType, isThread = false;
+
+    if (rawText) {
+      if (rawText.trim().length < 50) {
+        return res.status(400).json({ error: 'Please paste at least a few sentences of text to analyze.' });
+      }
+      text = rawText.trim().slice(0, 8000);
+      title = 'Pasted text';
+      contentType = 'pasted text';
+    } else {
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ error: 'A URL or pasted text is required.' });
+      }
+      let parsedUrl;
+      try {
+        parsedUrl = new URL(url);
+        if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error();
+      } catch {
+        return res.status(400).json({ error: 'Invalid URL. Please include http:// or https://' });
+      }
+      const hostname = parsedUrl.hostname.toLowerCase();
+      const ssrfBlocked = ['localhost', '127.0.0.1', '0.0.0.0', '::1', '169.254.', '10.', '192.168.', '172.'];
+      if (ssrfBlocked.some(b => hostname.startsWith(b) || hostname === b)) {
+        return res.status(400).json({ error: 'Private or local URLs are not allowed.' });
+      }
+      ({ text, title, contentType, isThread } = isTwitterUrl(url)
+        ? await fetchTwitterContent(url)
+        : await fetchPageContent(url));
+    }
 
     if (!text || text.trim().length < 50) {
-      return res.status(422).json({ error: 'Could not extract enough text content from this URL. The page may require JavaScript or a login.' });
+      return res.status(422).json({ error: 'Could not extract enough text content. The page may require JavaScript or a login.' });
     }
 
     const threadNote = isThread
@@ -334,7 +236,7 @@ module.exports = async (req, res) => {
     const prompt = (DETECTION_PROMPT + threadNote)
       .replace('{CONTENT}', text)
       .replace('{TYPE}', contentType)
-      .replace('{URL}', url);
+      .replace('{URL}', url || 'pasted text');
 
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',

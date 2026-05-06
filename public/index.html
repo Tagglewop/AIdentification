@@ -377,6 +377,61 @@
       border-top: 1px solid var(--border);
       margin-top: auto;
     }
+
+    .mode-toggle {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .mode-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.4rem 0.9rem;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .mode-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .reddit-notice {
+      display: none;
+      background: rgba(255, 69, 0, 0.08);
+      border: 1px solid rgba(255, 69, 0, 0.25);
+      border-radius: 0.75rem;
+      padding: 0.75rem 1rem;
+      font-size: 0.82rem;
+      color: #fca5a5;
+      margin-bottom: 1rem;
+      line-height: 1.5;
+    }
+
+    textarea#textInput {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 0.875rem 1.125rem;
+      font-size: 0.9rem;
+      color: var(--text);
+      resize: vertical;
+      min-height: 140px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+      margin-bottom: 0.75rem;
+    }
+
+    textarea#textInput::placeholder { color: var(--muted); }
+    textarea#textInput:focus { border-color: var(--accent); }
   </style>
 </head>
 <body>
@@ -389,10 +444,23 @@
 
 <main>
   <div class="input-card">
+    <div class="mode-toggle">
+      <button type="button" class="mode-btn active" id="modeUrl">Paste a link</button>
+      <button type="button" class="mode-btn" id="modeText">Paste text</button>
+    </div>
+    <div class="reddit-notice" id="redditNotice">
+      Reddit blocks automated access. Copy the post text and use <strong>Paste text</strong> instead.
+    </div>
     <form id="analyzeForm">
-      <div class="url-row">
-        <input type="url" id="urlInput" placeholder="https://example.com/article" required autocomplete="off" />
+      <div class="url-row" id="urlRow">
+        <input type="url" id="urlInput" placeholder="https://example.com/article" autocomplete="off" />
         <button type="submit" id="submitBtn">Analyze</button>
+      </div>
+      <div id="textRow" style="display:none">
+        <textarea id="textInput" placeholder="Paste the text you want to analyze here…"></textarea>
+        <div class="url-row" style="margin-bottom:0">
+          <button type="submit" id="submitBtnText" form="analyzeForm">Analyze</button>
+        </div>
       </div>
       <p class="hint">Works on articles, blog posts, product descriptions, social profiles, and more.</p>
     </form>
@@ -449,14 +517,49 @@
 <script>
   const form = document.getElementById('analyzeForm');
   const urlInput = document.getElementById('urlInput');
+  const textInput = document.getElementById('textInput');
   const submitBtn = document.getElementById('submitBtn');
   const loader = document.getElementById('loader');
   const errorBox = document.getElementById('errorBox');
   const resultCard = document.getElementById('resultCard');
 
+  let textMode = false;
+
+  document.getElementById('modeUrl').addEventListener('click', () => {
+    textMode = false;
+    document.getElementById('modeUrl').classList.add('active');
+    document.getElementById('modeText').classList.remove('active');
+    document.getElementById('urlRow').style.display = '';
+    document.getElementById('textRow').style.display = 'none';
+    document.getElementById('redditNotice').style.display = 'none';
+  });
+
+  document.getElementById('modeText').addEventListener('click', () => {
+    textMode = true;
+    document.getElementById('modeText').classList.add('active');
+    document.getElementById('modeUrl').classList.remove('active');
+    document.getElementById('urlRow').style.display = 'none';
+    document.getElementById('textRow').style.display = 'block';
+    document.getElementById('redditNotice').style.display = 'none';
+  });
+
+  function isRedditUrl(val) {
+    try {
+      const host = new URL(val).hostname.replace('www.', '');
+      return host === 'reddit.com';
+    } catch { return false; }
+  }
+
+  urlInput.addEventListener('input', () => {
+    const notice = document.getElementById('redditNotice');
+    notice.style.display = isRedditUrl(urlInput.value.trim()) ? 'block' : 'none';
+  });
+
   function setLoading(on) {
     submitBtn.disabled = on;
+    document.getElementById('submitBtnText').disabled = on;
     submitBtn.textContent = on ? 'Analyzing…' : 'Analyze';
+    document.getElementById('submitBtnText').textContent = on ? 'Analyzing…' : 'Analyze';
     loader.classList.toggle('active', on);
   }
 
@@ -537,11 +640,15 @@
     resultCard.classList.remove('active');
     setLoading(true);
 
+    const body = textMode
+      ? { text: textInput.value.trim() }
+      : { url: urlInput.value.trim() };
+
     try {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: urlInput.value.trim() }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();
