@@ -92,6 +92,63 @@ function isTwitterUrl(url) {
   return host === 'twitter.com' || host === 'x.com';
 }
 
+function isRedditUrl(url) {
+  const host = new URL(url).hostname.replace('www.', '').replace('old.', '').replace('new.', '');
+  return host === 'reddit.com';
+}
+
+async function fetchRedditContent(url) {
+  const cleanUrl = url.replace(/\?.*$/, '').replace(/\/$/, '');
+  const jsonUrl = cleanUrl + '.json';
+
+  const response = await fetch(jsonUrl, {
+    headers: {
+      'User-Agent': 'AIdetificator/1.0 (AI content detection tool)',
+      'Accept': 'application/json',
+    },
+    timeout: 10000,
+  });
+
+  if (response.status === 403 || response.status === 401) {
+    throw new Error('This Reddit post is from a private community or has been removed.');
+  }
+  if (!response.ok) {
+    throw new Error(`Could not fetch Reddit post (${response.status}).`);
+  }
+
+  const data = await response.json();
+  const post = data[0]?.data?.children?.[0]?.data;
+
+  if (!post) {
+    throw new Error('Could not parse Reddit post data.');
+  }
+
+  const title = post.title || '';
+  const body = post.selftext || '';
+  const author = post.author || 'unknown';
+  const subreddit = post.subreddit ? `r/${post.subreddit}` : 'Reddit';
+
+  if (body === '[deleted]' || body === '[removed]') {
+    throw new Error('This Reddit post has been deleted or removed.');
+  }
+
+  if (!body && !title) {
+    throw new Error('This Reddit post has no text content to analyze (may be a link or image post).');
+  }
+
+  const text = [
+    title,
+    `by u/${author} on ${subreddit}`,
+    body,
+  ].filter(Boolean).join('\n\n');
+
+  return {
+    text: text.trim(),
+    title: `${title || 'Reddit Post'}`,
+    contentType: 'Reddit post',
+  };
+}
+
 async function fetchTwitterContent(url) {
   // Use Twitter's public oEmbed API — no auth required
   const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}&omit_script=true`;
@@ -218,7 +275,9 @@ module.exports = async (req, res) => {
   try {
     const { text, title, contentType, isThread } = isTwitterUrl(url)
       ? await fetchTwitterContent(url)
-      : await fetchPageContent(url);
+      : isRedditUrl(url)
+        ? await fetchRedditContent(url)
+        : await fetchPageContent(url);
 
     if (!text || text.trim().length < 50) {
       return res.status(422).json({ error: 'Could not extract enough text content from this URL. The page may require JavaScript or a login.' });
