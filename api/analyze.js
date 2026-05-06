@@ -187,6 +187,11 @@ Scan ALL of these text locations:
 - Perfectly legible, contextually correct text everywhere does NOT confirm human — modern AI can render clean text when it's large and prominent. Keep looking at small and incidental text.
 - If you find garbled text on a specific object (e.g., tire sidewall, license plate), name it explicitly in your ai_indicators list with a description of what you observed.
 
+**Critical: do NOT use angle or shadow as an excuse to skip a text check.**
+If text is partially visible, describe what you actually see character by character for the most clearly visible portion. AI-generated text on physical objects often looks like letters from a distance but resolves into pseudo-characters, inconsistent stroke widths, or shapes that aren't any real alphabet character when examined closely. Even one or two characters that look "almost like" real letters but aren't = AI artifact. Describe them: "the sidewall shows what appear to be characters resembling 'RX4EΩ2' — not a real tire specification format."
+
+"Cannot fully verify" is NOT a neutral finding — it is itself a soft AI signal. Real photographs of real objects include readable text on those objects. If text should be legible at the shooting distance and angle but is not, note this as suspicious. The most visible section of the text in the image — not the most obscured — is what you must scrutinize. Find the clearest portion and describe exactly what the characters look like.
+
 **STEP 3B — CLASSIC ARTIFACT CHECK**
 - Hands and fingers: count carefully, check proportions, look for fused/extra digits
 - Eyes: check for authentic reflections, real iris detail, natural asymmetry
