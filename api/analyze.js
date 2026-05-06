@@ -157,11 +157,30 @@ These are what catches modern photorealistic AI:
 - **Subject integration**: Do multiple subjects (people, animals, objects) feel naturally integrated in the same space and light, or does each look like it was placed into the scene separately?
 - **The "too cute / too perfect" factor**: AI images of animals, children, and people together are often engineered to be maximally appealing. Real photos capture an imperfect moment.
 
-**STEP 3 — CLASSIC ARTIFACT CHECK (still relevant)**
+**STEP 3 — TEXT SCAN (treat this as a mandatory sweep, not an optional check)**
+AI models struggle to render legible, meaningful text — especially text embedded on physical objects. This is one of the most reliable AI detection signals available. You MUST scan every piece of text in the image, no matter how small, peripheral, or obscured.
+
+Scan ALL of these text locations:
+- **On tires**: sidewall lettering, brand names, size markings (e.g., "205/55R16"), DOT codes — AI almost always garbles these into pseudo-letters or nonsensical strings
+- **On clothing**: brand logos, jersey names/numbers, graphic tee text, labels
+- **License plates**: letters and numbers should be a real, valid format for the apparent country/region
+- **Storefront signs, street signs, billboards**: background text that AI renders as plausible-looking gibberish
+- **Food/drink packaging**: label text, ingredient lists, brand names
+- **Books, newspapers, screens**: any printed or displayed text in frame
+- **Tattoos with text**: often rendered as decorative nonsense
+- **Tool engravings, car dashboards, instrument panels**: small functional text AI consistently fails on
+- **Watermarks, captions, stamps**: text that should be legible but may be garbled at edges
+
+**Ruling:**
+- ANY garbled, nonsensical, impossible, or pseudo-alphabetic text anywhere in the image = near-certain AI, assign 90%+ confidence immediately. This is one of the hardest things for AI to fake.
+- Text that is partially legible but contains impossible letter combinations, mixed character sets, or wrong language for the context = strong AI signal.
+- Perfectly legible, contextually correct text everywhere does NOT confirm human — modern AI can render clean text when it's large and prominent. Keep looking at small and incidental text.
+- If you find garbled text on a specific object (e.g., tire sidewall, license plate), name it explicitly in your ai_indicators list with a description of what you observed.
+
+**STEP 3B — CLASSIC ARTIFACT CHECK**
 - Hands and fingers: count carefully, check proportions, look for fused/extra digits
 - Eyes: check for authentic reflections, real iris detail, natural asymmetry
 - Ears and teeth: simplified or melted geometry
-- Text in the image: garbled, inconsistent, or misspelled
 - Watermarks: Midjourney, DALL-E, Stable Diffusion, Adobe Firefly
 
 **STEP 4 — CAMERA AUTHENTICITY CHECK**
