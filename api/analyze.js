@@ -110,6 +110,7 @@ async function fetchRedditContent(url) {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.5',
+      'Cookie': 'over18=1; reddit_first=%7B%22firsttime%22%3A%22first%22%7D',
     },
     timeout: 10000,
   });
@@ -124,27 +125,38 @@ async function fetchRedditContent(url) {
   const html = await response.text();
   const $ = cheerio.load(html);
 
-  // old Reddit puts the post body in .expando .usertext-body
+  // Detect redirect to login/app page
+  if ($('body').text().toLowerCase().includes('sign up to continue') ||
+      $('body').text().toLowerCase().includes('reddit is home to')) {
+    throw new Error('Reddit is blocking this request. Try pasting the post text directly instead of the URL.');
+  }
+
+  $('script, style, .side, .footer, nav').remove();
+
   const title = $('a.title').first().text().trim()
+    || $('p.title a').first().text().trim()
     || $('h1').first().text().trim()
     || 'Reddit Post';
 
   const author = $('a.author').first().text().trim() || 'unknown';
 
-  $('script, style').remove();
-  let body = $('.expando .usertext-body .md').first().text().trim();
-
-  if (!body) {
-    // Some user posts use a slightly different structure
-    body = $('.usertext-body .md').first().text().trim();
-  }
-
-  if (!body && !title) {
-    throw new Error('This Reddit post has no text content to analyze (may be a link or image post).');
-  }
+  // Try multiple selectors for post body
+  let body = $('.expando .usertext-body .md').first().text().trim()
+    || $('.usertext-body .md').first().text().trim()
+    || $('.md').first().text().trim();
 
   if (body === '[deleted]' || body === '[removed]') {
     throw new Error('This Reddit post has been deleted or removed.');
+  }
+
+  // If still no body, fall back to general page text
+  if (!body) {
+    body = $('body').text().replace(/\s+/g, ' ').trim();
+    if (body.length > 6000) body = body.substring(0, 6000);
+  }
+
+  if (!body && !title) {
+    throw new Error('Could not extract text from this Reddit post. It may be an image or link post.');
   }
 
   const text = [title, `by u/${author} on Reddit`, body]
@@ -331,11 +343,7 @@ module.exports = async (req, res) => {
     if (err.type === 'request-timeout' || err.message.includes('network timeout')) {
       return res.status(504).json({ error: 'The URL took too long to respond.' });
     }
-    // Surface specific errors (tweet not found, login required, etc.)
-    if (err.message.startsWith('Could not') || err.message.startsWith('Failed to fetch')) {
-      return res.status(422).json({ error: err.message });
-    }
-
-    return res.status(500).json({ error: 'Analysis failed. Please try again.' });
+    // Surface the real error — anything not caught above is user-facing
+    return res.status(422).json({ error: err.message || 'Analysis failed. Please try again.' });
   }
 };
