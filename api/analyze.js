@@ -33,99 +33,122 @@ async function logAnalysis(ip, url, result) {
   });
 }
 
-const DETECTION_PROMPT = `You are an expert AI content detector. Analyze the following content extracted from a webpage and determine whether it was created by AI or by a human.
-
-Look for these AI indicators:
-- Unnaturally uniform sentence structure and length
-- Overuse of transitional phrases ("Furthermore", "Additionally", "Moreover", "In conclusion")
-- Hedging language and excessive qualifications
-- Generic, vague statements lacking personal voice or specific detail
-- Perfect grammar with no colloquialisms or personality
-- Repetitive or formulaic paragraph structure
-- Lack of genuine opinion, humor, or emotional texture
-- Suspiciously balanced "on one hand / on the other hand" framing
-- Content that feels comprehensive but shallow
-- Excessive em dashes used for artificial tension between clauses (e.g. "like this—instead of using a comma")
-- Forced sass or artificial edge: phrases like "But here's the thing:", "Then I realized:", "Hot take:", "The result?"
-- AI buzzwords: "delve," "crucial," "significant," "important," "unlock," "empower," "elevate" used frequently
-- Clichéd opening phrases: "In today's fast-paced digital landscape", "In the dynamic world of...", "As the world continues to evolve…"
-- Obsession with "looming challenges" and diplomatic "advantages and disadvantages" framing
-- Formulaic structures: rule-of-three, "No X. No Y. Just Z.", "It is not just X. It's also Y."
-- Sudden unexplained bullet point lists or random emoji placement mid-prose
-- Title patterns like "X Things You Should Know" or "From X to Y"
-- Self-referential AI language: "As a large-scale language model" (major red flag)
-- Longer-than-natural sentence length and inflated word count with little added meaning
-
-Also look for human indicators:
-- Typos, informal language, or colloquialisms
-- Strong personal opinions or unique perspective
-- Specific anecdotes or niche references
-- Inconsistent style or voice that evolves naturally
-- Humor, sarcasm, or genuine emotional resonance
-- Unusual structure that breaks conventions intentionally
-- Natural imperfection: sentence fragments, run-ons, or casual grammar used deliberately
+const DETECTION_PROMPT = `You are a forensic AI content analyst. Your job is to determine with high accuracy whether the following content was written by an AI or a human. Accuracy is the only priority — do not guess or default to a verdict when evidence is thin.
 
 CONTENT TO ANALYZE:
 ---
 {CONTENT}
 ---
-
 CONTENT TYPE: {TYPE}
-SOURCE URL: {URL}
+SOURCE: {URL}
 
-Respond in this exact JSON format:
+## YOUR ANALYSIS PROCESS
+
+Work through these steps carefully:
+
+**STEP 1 — VOCABULARY SCAN**
+Flag any of these high-specificity AI words: "delve," "delves," "delving," "nuanced," "crucial," "multifaceted," "comprehensive," "leverage," "unlock," "empower," "elevate," "robust," "pivotal," "seamless," "streamline," "cutting-edge," "game-changing," "foster," "realm," "landscape," "utilize" (when "use" would do).
+More than 2-3 of these = strong AI signal.
+
+**STEP 2 — STRUCTURE SCAN**
+Check for:
+- Formulaic openers: "In today's [X] world", "In the ever-evolving landscape of", "As we navigate"
+- Artificial transitions: "Furthermore," "Moreover," "Additionally," "In conclusion," "It is worth noting"
+- Rule-of-three constructions: "Not only X, but also Y and Z"
+- "But here's the thing:" / "The result?" / "Hot take:" patterns
+- Suspiciously uniform paragraph lengths
+- Em dash overuse for "dramatic tension—like this"
+- Headers and bullet points that feel auto-generated rather than editorially chosen
+
+**STEP 3 — VOICE & AUTHENTICITY SCAN**
+Does the writing have a genuine, consistent personality? Ask:
+- Does it express opinions that could be controversial, or does it stay diplomatically neutral on everything?
+- Are there specific personal details, niche references, or lived-experience moments that would be unusual for AI to fabricate?
+- Does it make any mistakes that reveal the author (consistent typos, regional slang, unconventional punctuation habits)?
+- Does the emotional register feel earned or performed?
+- Is the content genuinely specific or does it generalize when specifics would be expected?
+
+**STEP 4 — BASE RATE ADJUSTMENT**
+Consider the source and format:
+- SEO blog posts, LinkedIn posts, product descriptions = high prior probability of AI
+- Personal essays, news articles, opinion pieces with named bylines = lower prior probability
+- Short social posts with slang/typos = likely human
+- Academic or highly technical content = could be either
+
+**STEP 5 — WEIGH THE EVIDENCE**
+List every specific signal you found (quote exact phrases where possible). Weigh them. Reach a verdict.
+
+**CONFIDENCE CALIBRATION — follow this strictly:**
+- 90–100%: Multiple high-specificity AI signals found, or explicit AI self-reference. OR: clear personal voice, typos, specific lived details, and zero AI markers.
+- 75–89%: Several strong signals clearly pointing one direction with minimal counterevidence.
+- 60–74%: Moderate evidence leaning one direction but some counterevidence present.
+- 50–59%: Mixed signals. Genuinely uncertain — still pick the more likely verdict but reflect the uncertainty.
+- Never assign high confidence to a verdict you cannot support with specific textual evidence.
+
+Respond in this exact JSON format (no other text):
 {
   "verdict": "AI-Generated" | "Human-Written" | "Likely AI-Generated" | "Likely Human-Written",
-  "confidence": <integer 0-100>,
-  "summary": "<2-3 sentence confident explanation of your verdict>",
+  "confidence": <integer 50-100>,
+  "summary": "<3-4 sentences citing specific evidence from the text that drove your verdict>",
   "signals": {
-    "ai_indicators": ["<indicator 1>", "<indicator 2>", ...],
-    "human_indicators": ["<indicator 1>", "<indicator 2>", ...]
+    "ai_indicators": ["<specific quoted phrase or pattern>", ...],
+    "human_indicators": ["<specific quoted phrase or pattern>", ...]
   },
-  "content_type": "<what kind of content this is, e.g. news article, blog post, product description, social media post, tweet, etc.>"
-}
+  "content_type": "<specific content type>"
+}`;
 
-Be direct and confident. Do not hedge your verdict. Give a clear answer.`;
+const IMAGE_PROMPT = `You are a forensic AI image analyst. Determine with high accuracy whether this image was AI-generated or created by a human (photograph, hand-drawn, traditionally painted, or human-edited digital art). Accuracy is the only priority.
 
-const IMAGE_PROMPT = `You are an expert AI image detector. Analyze this image and determine whether it was generated by AI or created/captured by a human (photograph, hand-drawn art, human-edited digital art, etc.).
+## YOUR ANALYSIS PROCESS
 
-Look for these AI generation indicators:
-- Unnatural skin texture — too smooth, waxy, or plastic-looking
-- Hand and finger anomalies — extra fingers, fused digits, wrong proportions
-- Inconsistent lighting or shadows that don't match the scene
-- Background artifacts — blurring, warping, repeating patterns, incoherent details
-- Text in the image that is garbled, misspelled, or stylistically inconsistent
-- Eyes that lack natural reflections, are too symmetrical, or have an "uncanny valley" quality
-- Hair that looks like a texture rather than individual strands, or merges unnaturally
-- Ears, teeth, or jewelry with distorted or melted-looking geometry
-- Overly perfect composition or hyper-saturated colors with no natural noise/grain
-- Watermarks or style signatures from known AI tools (Midjourney, DALL-E, Stable Diffusion, Firefly)
-- Clothing or fabric with impossible folds or patterns that don't tile correctly
-- Missing or wrong reflections in mirrors, glasses, or shiny surfaces
-- Backgrounds that are impressionistic or dissolve into incoherence near edges
+Examine the image systematically:
 
-Look for these human/real indicators:
-- Natural film grain, compression artifacts, or sensor noise consistent with a camera
-- Authentic imperfections — blemishes, asymmetry, natural lighting variation
-- Coherent, readable text throughout the image
-- Anatomically correct hands, ears, and facial features
-- Consistent perspective and shadows across the whole scene
-- Metadata-consistent quality (compression, lens distortion, chromatic aberration)
-- Style consistent with known art media (oil paint texture, pencil strokes, watercolor bleed)
+**STEP 1 — ANATOMY CHECK** (highest-weight signals)
+- Hands and fingers: count fingers, check proportions, look for fused/extra digits or unnatural smoothing
+- Eyes: check for reflections, iris detail, asymmetry — AI eyes often have an uncanny uniformity
+- Ears: look for melted or simplified geometry
+- Teeth: check for unnaturally perfect symmetry or blending into gums
 
-Respond in this exact JSON format:
+**STEP 2 — TEXTURE & PHYSICS CHECK**
+- Skin: real skin has pores, fine hair, irregular texture. AI skin is often smooth and plastic-like
+- Hair: individual strands vs. painted-on texture mass
+- Fabric: check if patterns tile correctly at folds, wrinkles make physical sense
+- Lighting: does the light source stay consistent across the entire scene? Shadows fall correctly?
+- Reflections: do glasses, eyes, mirrors, and shiny surfaces reflect what they should?
+
+**STEP 3 — BACKGROUND & COMPOSITION CHECK**
+- Does the background make spatial sense or dissolve into impressionistic blur near edges?
+- Are there repeated patterns, warped geometry, or floating objects?
+- Is the composition unnaturally perfect — rule-of-thirds, centered subject, no real-world clutter?
+
+**STEP 4 — TEXT & DETAILS CHECK**
+- Any text in the image: is it legible and consistent, or garbled/misspelled?
+- Fine details at edges: do objects have coherent silhouettes or fuzzy/blended borders?
+- Visible watermarks: Midjourney, DALL-E, Stable Diffusion, Adobe Firefly, etc.
+
+**STEP 5 — AUTHENTICITY MARKERS**
+- Film grain or sensor noise consistent with a real camera
+- Lens effects: chromatic aberration, barrel distortion, natural bokeh
+- Evidence of real-world imperfection: asymmetric faces, blemishes, uneven lighting
+- Style coherence consistent with a known medium (oil paint, pencil, watercolor)
+
+**CONFIDENCE CALIBRATION:**
+- 90–100%: Multiple clear anatomical or physics failures. OR: unmistakable photo authenticity with grain, lens artifacts, real imperfections.
+- 75–89%: Several strong signals one direction.
+- 60–74%: Moderate evidence with some ambiguity.
+- 50–59%: Genuinely uncertain — high-quality AI or heavily edited photo.
+
+Respond in this exact JSON format (no other text):
 {
   "verdict": "AI-Generated" | "Human-Created" | "Likely AI-Generated" | "Likely Human-Created",
-  "confidence": <integer 0-100>,
-  "summary": "<2-3 sentence confident explanation of your verdict>",
+  "confidence": <integer 50-100>,
+  "summary": "<3-4 sentences citing specific visual evidence that drove your verdict>",
   "signals": {
-    "ai_indicators": ["<indicator 1>", "<indicator 2>", ...],
-    "human_indicators": ["<indicator 1>", "<indicator 2>", ...]
+    "ai_indicators": ["<specific observation>", ...],
+    "human_indicators": ["<specific observation>", ...]
   },
-  "content_type": "<what kind of image this is, e.g. portrait photo, landscape, digital art, illustration, etc.>"
-}
-
-Be direct and confident. Do not hedge your verdict.`;
+  "content_type": "<specific image type: portrait photo, landscape photo, digital illustration, oil painting, etc.>"
+}`;
 
 function isTwitterUrl(url) {
   const host = new URL(url).hostname.replace('www.', '');
@@ -245,7 +268,8 @@ module.exports = async (req, res) => {
 
       message = await anthropic.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
+        max_tokens: 12000,
+        thinking: { type: 'enabled', budget_tokens: 8000 },
         messages: [{
           role: 'user',
           content: [
@@ -301,12 +325,15 @@ module.exports = async (req, res) => {
 
       message = await anthropic.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
+        max_tokens: 12000,
+        thinking: { type: 'enabled', budget_tokens: 8000 },
         messages: [{ role: 'user', content: prompt }],
       });
     }
 
-    const responseText = message.content[0].text.trim();
+    const textBlock = message.content.find(b => b.type === 'text');
+    if (!textBlock) throw new Error('No text response from model.');
+    const responseText = textBlock.text.trim();
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('Could not parse analysis response.');
 
