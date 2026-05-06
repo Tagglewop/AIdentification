@@ -99,15 +99,25 @@ Respond in this exact JSON format (no other text):
 
 const IMAGE_PROMPT = `You are a forensic AI image analyst specializing in detecting modern photorealistic AI generation. Your most important job is correctly identifying high-quality AI images that LACK obvious artifacts. Modern AI (Midjourney v6, DALL-E 3, Flux, Stable Diffusion XL) produces images with correct finger counts, readable text, and coherent backgrounds — do NOT rely on old artifact checklists alone.
 
-## HARD-STOP RULES — CHECK THESE FIRST
-Some signals are definitive proof of AI generation. If you find any of the following, stop weighing evidence and immediately return "AI-Generated" at 90–98% confidence. Do not let authentic-looking surroundings, physically accurate details, or realistic lighting override these:
+## HARD-STOP RULES — CHECK THESE BEFORE ANYTHING ELSE
+These are non-negotiable. Physical realism, correct lighting, authentic grime — none of it matters once any of these are found.
 
-- **Garbled, nonsensical, or pseudo-alphabetic text anywhere in the image** — tire sidewalls, license plates, signs, labels, clothing, packaging, tattoos, dashboards. One instance of gibberish text is conclusive. AI cannot fabricate readable embedded text reliably.
-- **Extra, fused, or missing fingers on a clearly visible hand**
-- **Visible AI watermark** (Midjourney, DALL-E, Stable Diffusion, Adobe Firefly, etc.)
-- **Anatomically impossible body geometry** on a clearly visible and in-focus subject
+**CONFIRMED AI ARTIFACT → "AI-Generated" at 90–98% immediately:**
+- Garbled, nonsensical, or pseudo-alphabetic text on any physical object. Even one instance. Do not soften.
+- Visible characters on a tire sidewall that do not form a real tire spec (brand name + size code e.g. 225/45R18 + DOT code). If you can see characters and they don't form real tire text, that is garbled text. Full stop.
+- Extra, fused, or missing fingers on a clearly visible in-focus hand
+- Visible AI watermark (Midjourney, DALL-E, Stable Diffusion, Adobe Firefly, etc.)
+- Anatomically impossible body geometry on a clearly visible in-focus subject
 
-When a hard-stop signal is present: state it clearly as the primary finding, assign 90%+ confidence, and do not list surrounding realism (accurate physics, realistic grime, correct lighting) as counterevidence. Those details are irrelevant once a definitive artifact is confirmed — modern AI generates them routinely as filler. A convincingly rendered flat tire next to unreadable text is still AI.
+**UNVERIFIABLE TEXT → "Likely AI-Generated" at 75–82%:**
+If tire sidewall, license plate, or sign text is present but you cannot confirm it resolves into real, legible characters — for any reason including angle, shadow, or flat-tire deformation — default to "Likely AI-Generated" at 75–82%. Do not construct physics-based explanations for why the text might be obscured. The angle of a flat tire does not prevent all text from being visible — real tires have text on multiple arcs and at least some portion is always camera-facing. If none is readable, that is suspicious.
+
+**If you are unsure which applies:** call it "AI-Generated" at 85%. Never resolve uncertainty toward human when text is in question.
+
+**When either applies:**
+- Text finding is the primary signal in your summary. Lead with it.
+- Do NOT list physical realism (accurate deformation, correct grime, good lighting) as human signals — AI generates all of these routinely and they are irrelevant once text is in question.
+- Do NOT write "however the physical details suggest genuine photography" — this contradicts the verdict.
 
 ## CRITICAL RULES
 1. Absence of obvious artifacts (extra fingers, garbled text) does NOT mean the image is human-created. Modern AI is very good. You must look deeper.
@@ -187,10 +197,18 @@ Scan ALL of these text locations:
 - Perfectly legible, contextually correct text everywhere does NOT confirm human — modern AI can render clean text when it's large and prominent. Keep looking at small and incidental text.
 - If you find garbled text on a specific object (e.g., tire sidewall, license plate), name it explicitly in your ai_indicators list with a description of what you observed.
 
-**Critical: do NOT use angle or shadow as an excuse to skip a text check.**
-If text is partially visible, describe what you actually see character by character for the most clearly visible portion. AI-generated text on physical objects often looks like letters from a distance but resolves into pseudo-characters, inconsistent stroke widths, or shapes that aren't any real alphabet character when examined closely. Even one or two characters that look "almost like" real letters but aren't = AI artifact. Describe them: "the sidewall shows what appear to be characters resembling 'RX4EΩ2' — not a real tire specification format."
+**Tire sidewall text — specific protocol:**
+A real tire always has raised embossed text on its outer sidewall: a brand name (e.g., MICHELIN, CONTINENTAL, PIRELLI, BRIDGESTONE), a size code (e.g., 225/45R18), a load/speed rating (e.g., 91W), and a DOT code. These appear in multiple places around the sidewall arc. At a distance of 1–3 feet with a camera-facing sidewall, at least ONE of these strings must be readable.
 
-"Cannot fully verify" is NOT a neutral finding — it is itself a soft AI signal. Real photographs of real objects include readable text on those objects. If text should be legible at the shooting distance and angle but is not, note this as suspicious. The most visible section of the text in the image — not the most obscured — is what you must scrutinize. Find the clearest portion and describe exactly what the characters look like.
+When you examine a tire in the image:
+1. Find the most clearly visible portion of the outer sidewall
+2. Ask: can I read a brand name, a size code, or any DOT string there?
+3. If YES and the text is correct → neutral (not a human signal, AI can render prominent text)
+4. If YES and the characters are garbled / don't form real tire spec text → CONFIRMED ARTIFACT, 90%+ AI immediately
+5. If you see markings/characters but cannot decode them as a real specification → CONFIRMED ARTIFACT at 90%+. Absence of readable text IS the artifact.
+6. If you see NO text at all on the sidewall — completely smooth black rubber — that is ALSO a confirmed artifact at 90%+. Real tires are not smooth. They always have raised embossed text. A sidewall with no visible text markings whatsoever means the AI failed to render the text at all.
+
+Do not reason about why the text might be obscured. If it's not readable, it's wrong. If it's not there, it's wrong. Call it AI-Generated, 90%+.
 
 **STEP 3B — CLASSIC ARTIFACT CHECK**
 - Hands and fingers: count carefully, check proportions, look for fused/extra digits
@@ -354,10 +372,12 @@ module.exports = async (req, res) => {
         ? { type: 'base64', media_type: mediaType || 'image/jpeg', data: imageData }
         : { type: 'url', url: imageUrl };
 
+      // No extended thinking for images — deep reasoning lets the model rationalize
+      // away hard-stop artifact rules (e.g. missing tire text). Decisive rule-following
+      // outperforms extended deliberation for visual artifact detection.
       message = await anthropic.messages.create({
         model: 'claude-sonnet-4-6',
-        max_tokens: 12000,
-        thinking: { type: 'enabled', budget_tokens: 8000 },
+        max_tokens: 4000,
         messages: [{
           role: 'user',
           content: [
