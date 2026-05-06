@@ -98,53 +98,64 @@ function isRedditUrl(url) {
 }
 
 async function fetchRedditContent(url) {
-  const cleanUrl = url.replace(/\?.*$/, '').replace(/\/$/, '');
-  const jsonUrl = cleanUrl + '.json';
+  // old.reddit.com renders full HTML server-side — no JS, no API key needed
+  const oldUrl = url
+    .replace('www.reddit.com', 'old.reddit.com')
+    .replace('new.reddit.com', 'old.reddit.com')
+    .replace(/\?.*$/, '')
+    .replace(/\/$/, '');
 
-  const response = await fetch(jsonUrl, {
+  const response = await fetch(oldUrl, {
     headers: {
-      'User-Agent': 'AIdetificator/1.0 (AI content detection tool)',
-      'Accept': 'application/json',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.5',
     },
     timeout: 10000,
   });
 
   if (response.status === 403 || response.status === 401) {
-    throw new Error('This Reddit post is from a private community or has been removed.');
+    throw new Error('This Reddit post is from a private community or requires a login.');
   }
   if (!response.ok) {
     throw new Error(`Could not fetch Reddit post (${response.status}).`);
   }
 
-  const data = await response.json();
-  const post = data[0]?.data?.children?.[0]?.data;
+  const html = await response.text();
+  const $ = cheerio.load(html);
 
-  if (!post) {
-    throw new Error('Could not parse Reddit post data.');
-  }
+  // old Reddit puts the post body in .expando .usertext-body
+  const title = $('a.title').first().text().trim()
+    || $('h1').first().text().trim()
+    || 'Reddit Post';
 
-  const title = post.title || '';
-  const body = post.selftext || '';
-  const author = post.author || 'unknown';
-  const subreddit = post.subreddit ? `r/${post.subreddit}` : 'Reddit';
+  const author = $('a.author').first().text().trim() || 'unknown';
 
-  if (body === '[deleted]' || body === '[removed]') {
-    throw new Error('This Reddit post has been deleted or removed.');
+  $('script, style').remove();
+  let body = $('.expando .usertext-body .md').first().text().trim();
+
+  if (!body) {
+    // Some user posts use a slightly different structure
+    body = $('.usertext-body .md').first().text().trim();
   }
 
   if (!body && !title) {
     throw new Error('This Reddit post has no text content to analyze (may be a link or image post).');
   }
 
-  const text = [
-    title,
-    `by u/${author} on ${subreddit}`,
-    body,
-  ].filter(Boolean).join('\n\n');
+  if (body === '[deleted]' || body === '[removed]') {
+    throw new Error('This Reddit post has been deleted or removed.');
+  }
+
+  const text = [title, `by u/${author} on Reddit`, body]
+    .filter(Boolean)
+    .join('\n\n')
+    .replace(/\s+/g, ' ')
+    .trim();
 
   return {
-    text: text.trim(),
-    title: `${title || 'Reddit Post'}`,
+    text,
+    title,
     contentType: 'Reddit post',
   };
 }
