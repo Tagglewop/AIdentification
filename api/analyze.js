@@ -106,22 +106,26 @@ async function getRedditToken() {
     `${process.env.REDDIT_CLIENT_ID}:${process.env.REDDIT_CLIENT_SECRET}`
   ).toString('base64');
 
+  const params = new URLSearchParams({ grant_type: 'client_credentials' });
+
   const response = await fetch('https://www.reddit.com/api/v1/access_token', {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${credentials}`,
-      'User-Agent': 'AIdetificator/1.0',
+      // Reddit requires this exact format or it rejects the request
+      'User-Agent': 'web:aidentificator:1.0 (by /u/aidentificator)',
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: 'grant_type=client_credentials',
+    body: params.toString(),
     timeout: 8000,
   });
 
-  if (!response.ok) {
-    throw new Error('Reddit authentication failed. Check that REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET are correct.');
+  const data = await response.json();
+
+  if (!response.ok || data.error) {
+    throw new Error(`Reddit auth error: ${data.error || response.status}. Go to reddit.com/prefs/apps — the Client ID is the short string directly under the app name (above "secret:"), not the secret itself.`);
   }
 
-  const data = await response.json();
   if (!data.access_token) {
     throw new Error('Reddit did not return an access token. Check your API credentials.');
   }
