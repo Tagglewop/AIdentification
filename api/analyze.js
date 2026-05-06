@@ -44,8 +44,17 @@ Look for these AI indicators:
 - Repetitive or formulaic paragraph structure
 - Lack of genuine opinion, humor, or emotional texture
 - Suspiciously balanced "on one hand / on the other hand" framing
-- Overuse of em-dashes, colons, and bullet points in predictable patterns
 - Content that feels comprehensive but shallow
+- Excessive em dashes used for artificial tension between clauses (e.g. "like this—instead of using a comma")
+- Forced sass or artificial edge: phrases like "But here's the thing:", "Then I realized:", "Hot take:", "The result?"
+- AI buzzwords: "delve," "crucial," "significant," "important," "unlock," "empower," "elevate" used frequently
+- Clichéd opening phrases: "In today's fast-paced digital landscape", "In the dynamic world of...", "As the world continues to evolve…"
+- Obsession with "looming challenges" and diplomatic "advantages and disadvantages" framing
+- Formulaic structures: rule-of-three, "No X. No Y. Just Z.", "It is not just X. It's also Y."
+- Sudden unexplained bullet point lists or random emoji placement mid-prose
+- Title patterns like "X Things You Should Know" or "From X to Y"
+- Self-referential AI language: "As a large-scale language model" (major red flag)
+- Longer-than-natural sentence length and inflated word count with little added meaning
 
 Also look for human indicators:
 - Typos, informal language, or colloquialisms
@@ -54,6 +63,7 @@ Also look for human indicators:
 - Inconsistent style or voice that evolves naturally
 - Humor, sarcasm, or genuine emotional resonance
 - Unusual structure that breaks conventions intentionally
+- Natural imperfection: sentence fragments, run-ons, or casual grammar used deliberately
 
 CONTENT TO ANALYZE:
 ---
