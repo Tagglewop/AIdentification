@@ -318,6 +318,19 @@
       text-transform: uppercase;
     }
 
+    .thread-warning {
+      display: none;
+      background: rgba(234, 179, 8, 0.08);
+      border: 1px solid rgba(234, 179, 8, 0.25);
+      border-radius: 0.75rem;
+      padding: 0.75rem 1rem;
+      font-size: 0.82rem;
+      color: #fde68a;
+      margin-bottom: 1.25rem;
+      line-height: 1.5;
+    }
+    .thread-warning.active { display: block; }
+
     /* Error */
     .error-box {
       display: none;
@@ -379,6 +392,7 @@
     </div>
     <div class="result-body">
       <div class="content-type-badge" id="contentTypeBadge"></div>
+      <div class="thread-warning" id="threadWarning">🧵 This is a thread — only the opening tweet was analyzed. For a full thread analysis, paste the text directly into the box instead of the URL.</div>
       <div class="confidence-row">
         <span class="confidence-label">Confidence</span>
         <div class="confidence-bar-wrap">
@@ -447,6 +461,7 @@
 
     document.getElementById('pageTitle').textContent = data.title || data.url;
     document.getElementById('contentTypeBadge').textContent = data.content_type || 'Web Content';
+    document.getElementById('threadWarning').classList.toggle('active', !!data.is_thread);
 
     const bar = document.getElementById('confidenceBar');
     bar.className = `confidence-bar-fill ${cls}`;

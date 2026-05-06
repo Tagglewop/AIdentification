@@ -94,7 +94,14 @@ async function fetchTwitterContent(url) {
   const data = await response.json();
   const $ = cheerio.load(data.html);
 
-  // The tweet text is inside the <p> tag in the blockquote
+  // Preserve line breaks before stripping tags
+  $('br').replaceWith('\n');
+  $('p a').each((_, el) => {
+    const href = $(el).attr('href') || '';
+    // Strip trailing hashtag/mention links that clutter the text
+    if (href.startsWith('https://twitter.com/hashtag') || href.includes('/status/')) return;
+  });
+
   const tweetText = $('p').first().text().trim();
   const author = data.author_name || 'Unknown';
 
@@ -102,10 +109,13 @@ async function fetchTwitterContent(url) {
     throw new Error('Could not extract tweet text.');
   }
 
+  const isThread = /🧵|^1\/|\/\d+$|\bthread\b/i.test(tweetText);
+
   return {
     text: `Tweet by ${author}:\n\n${tweetText}`,
     title: `Tweet by ${author}`,
     contentType: 'tweet',
+    isThread,
   };
 }
 
@@ -196,7 +206,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const { text, title, contentType } = isTwitterUrl(url)
+    const { text, title, contentType, isThread } = isTwitterUrl(url)
       ? await fetchTwitterContent(url)
       : await fetchPageContent(url);
 
@@ -204,7 +214,11 @@ module.exports = async (req, res) => {
       return res.status(422).json({ error: 'Could not extract enough text content from this URL. The page may require JavaScript or a login.' });
     }
 
-    const prompt = DETECTION_PROMPT
+    const threadNote = isThread
+      ? '\n\nNOTE: This appears to be the opening tweet of a thread. The analysis is based on this tweet only. Factor in that threads are a common format for both AI-generated and human content, and note this limitation in your summary.'
+      : '';
+
+    const prompt = (DETECTION_PROMPT + threadNote)
       .replace('{CONTENT}', text)
       .replace('{TYPE}', contentType)
       .replace('{URL}', url);
@@ -222,6 +236,7 @@ module.exports = async (req, res) => {
     const analysis = JSON.parse(jsonMatch[0]);
     analysis.title = title;
     analysis.url = url;
+    analysis.is_thread = isThread || false;
 
     logAnalysis(ip, url, analysis).catch(e => console.error('Log failed:', e.message));
 
